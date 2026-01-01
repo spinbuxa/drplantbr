@@ -7,13 +7,14 @@ import { AnalysisResults } from './components/AnalysisResults';
 import { HistoryList } from './components/HistoryList';
 import { FertilizerCalculator } from './components/FertilizerCalculator';
 import { PestLibrary } from './components/PestLibrary';
+import { InstallBanner } from './components/InstallBanner';
 import { analyzePlantImage } from './services/geminiService';
 import { PlantAnalysisResult } from './types';
 import { Loader2, AlertTriangle, Users, BookOpen, Calculator, Sprout, Bug, ChevronRight, MessageSquare, ThumbsUp } from 'lucide-react';
 
 const STORAGE_KEY = 'drplant_history_v1';
 const THEME_KEY = 'drplant_theme';
-const APP_VERSION = '1.3.0'; 
+const APP_VERSION = '1.3.1'; 
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('home');
@@ -265,6 +266,9 @@ export const App: React.FC = () => {
     return (
       <div className="space-y-6 pb-24 pt-4 animate-fade-in">
         
+        {/* Banner de Instalação no Topo da Home */}
+        <InstallBanner />
+
         <div className="px-2">
            <PlantWeather />
         </div>
