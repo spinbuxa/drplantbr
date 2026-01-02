@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { HeaderLayout } from './components/HeaderLayout';
+import { MainHeader } from './components/MainHeader';
 import { BottomMenu } from './components/BottomMenu';
 import { PlantWeather } from './components/PlantWeather';
 import { ImageUpload } from './components/ImageUpload';
@@ -10,15 +10,13 @@ import { PestLibrary } from './components/PestLibrary';
 import { InstallBanner } from './components/InstallBanner';
 import { analyzePlantImage } from './services/geminiService';
 import { PlantAnalysisResult } from './types';
-import { Loader2, AlertTriangle, Users, BookOpen, Calculator, Sprout, Bug, ChevronRight, MessageSquare, ThumbsUp } from 'lucide-react';
+import { Loader2, AlertTriangle, Users, BookOpen, Calculator, Sprout, Bug, MessageSquare, ThumbsUp } from 'lucide-react';
 
 const STORAGE_KEY = 'drplant_history_v1';
-const THEME_KEY = 'drplant_theme';
 const APP_VERSION = '1.3.1'; 
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('home');
-  // currentView controla sub-telas dentro da Home (dashboard, calculadora, pragas)
   const [currentView, setCurrentView] = useState<'dashboard' | 'calculator' | 'pests'>('dashboard');
   
   const [analysis, setAnalysis] = useState<PlantAnalysisResult | null>(null);
@@ -53,11 +51,9 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  // Quando muda de aba principal, reseta a view da home para dashboard
   useEffect(() => {
     if (activeTab !== 'home') {
       setCurrentView('dashboard');
-      // Limpa imagem selecionada se sair da home
       if (selectedImage && !analysis) {
         setSelectedImage(null);
       }
@@ -189,7 +185,6 @@ export const App: React.FC = () => {
   );
 
   const renderHome = () => {
-    // 1. Se estiver usando uma ferramenta específica
     if (currentView === 'calculator') {
       return (
         <div className="pb-24 pt-4 animate-fade-in mx-2">
@@ -206,7 +201,6 @@ export const App: React.FC = () => {
       );
     }
 
-    // 2. Se tiver uma imagem selecionada (Análise)
     if (selectedImage) {
       return (
         <div className="animate-fade-in pb-20 pt-4">
@@ -262,11 +256,8 @@ export const App: React.FC = () => {
       );
     }
 
-    // 3. Dashboard Padrão
     return (
       <div className="space-y-6 pb-24 pt-4 animate-fade-in">
-        
-        {/* Banner de Instalação no Topo da Home */}
         <InstallBanner />
 
         <div className="px-2">
@@ -293,7 +284,6 @@ export const App: React.FC = () => {
            </div>
         </div>
 
-        {/* Atalhos Rápidos Funcionais */}
         <div className="mx-2">
            <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100 mb-3 px-1">Ferramentas</h3>
            <div className="grid grid-cols-4 gap-2">
@@ -406,9 +396,8 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
-      {/* O Header só aparece se não estivermos visualizando uma imagem em tela cheia na Home ou em uma ferramenta */}
       {(!selectedImage || activeTab !== 'home') && currentView === 'dashboard' && (
-        <HeaderLayout 
+        <MainHeader 
           onReset={handleReset} 
           isDarkMode={isDarkMode} 
           toggleTheme={toggleTheme} 
