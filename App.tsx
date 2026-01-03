@@ -104,9 +104,10 @@ export const App: React.FC = () => {
     try {
       const result = await analyzePlantImage(base64Image);
       setAnalysis(result);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError('Não foi possível identificar o problema. Tente uma foto mais clara da folha ou fruto afetado.');
+      // Use the specific error message from the service
+      setError(err.message || 'Não foi possível identificar o problema. Tente uma foto mais clara da folha ou fruto afetado.');
     } finally {
       setIsLoading(false);
     }

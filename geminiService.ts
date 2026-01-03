@@ -3,12 +3,28 @@ import { PlantAnalysisResult } from "./types";
 
 // Helper to remove the data URL prefix for the API
 const cleanBase64 = (base64: string) => {
-  return base64.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, "");
+  // More robust cleanup: split by comma and take the second part
+  if (base64.includes(',')) {
+    return base64.split(',')[1];
+  }
+  return base64;
 };
 
 const getMimeType = (base64: string) => {
-  const match = base64.match(/^data:image\/(png|jpeg|jpg|webp);base64,/);
-  return match ? `image/${match[1]}` : "image/jpeg";
+  const match = base64.match(/^data:(image\/[a-zA-Z+]+);base64,/);
+  return match ? match[1] : "image/jpeg";
+};
+
+// Helper to clean JSON string from Markdown code blocks
+const cleanJsonString = (text: string): string => {
+  let cleaned = text.replace(/```json/g, '').replace(/```/g, '');
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  
+  if (firstBrace !== -1 && lastBrace !== -1) {
+    cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+  }
+  return cleaned.trim();
 };
 
 // Generate a SHA-256 hash of the base64 image string to use as a cache key
@@ -22,24 +38,31 @@ const generateImageHash = async (base64: string): Promise<string> => {
 const CACHE_PREFIX = 'drplant_analysis_cache_v1_';
 
 export const analyzePlantImage = async (base64Image: string): Promise<PlantAnalysisResult> => {
-  try {
-    // 1. Check Local Cache using Image Hash
-    const imageHash = await generateImageHash(base64Image);
-    const cacheKey = `${CACHE_PREFIX}${imageHash}`;
-    const cachedData = localStorage.getItem(cacheKey);
+  // 1. Check for API Key immediately (outside try/catch to propagate specific error)
+  if (!process.env.API_KEY || process.env.API_KEY === '""') {
+    console.error("API_KEY is missing in process.env");
+    throw new Error("Configuração de API ausente. Verifique as variáveis de ambiente no Vercel.");
+  }
 
-    if (cachedData) {
-      console.log("Serving analysis from local cache");
-      const result = JSON.parse(cachedData) as PlantAnalysisResult;
-      
-      // Refresh ID and Date so it appears as a fresh entry in the session/history
-      // even though the diagnostic data is cached.
-      result.id = crypto.randomUUID();
-      result.date = new Date().toISOString();
-      return result;
+  try {
+    // 2. Check Local Cache using Image Hash
+    try {
+      const imageHash = await generateImageHash(base64Image);
+      const cacheKey = `${CACHE_PREFIX}${imageHash}`;
+      const cachedData = localStorage.getItem(cacheKey);
+
+      if (cachedData) {
+        console.log("Serving analysis from local cache");
+        const result = JSON.parse(cachedData) as PlantAnalysisResult;
+        result.id = crypto.randomUUID();
+        result.date = new Date().toISOString();
+        return result;
+      }
+    } catch (e) {
+      console.warn("Cache check failed, proceeding to API", e);
     }
 
-    // 2. Prepare API Call
+    // 3. Prepare API Call
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     const mimeType = getMimeType(base64Image);
@@ -177,27 +200,52 @@ export const analyzePlantImage = async (base64Image: string): Promise<PlantAnaly
     });
 
     if (!response.text) {
-      throw new Error("Resposta vazia da IA");
+      throw new Error("A IA retornou uma resposta vazia. Tente novamente.");
     }
 
-    const result = JSON.parse(response.text) as PlantAnalysisResult;
-    
-    // 3. Save to Cache
-    // We try to save it to localStorage. If quota is exceeded, we just ignore.
+    let result: PlantAnalysisResult;
     try {
+      const cleanedText = cleanJsonString(response.text);
+      result = JSON.parse(cleanedText) as PlantAnalysisResult;
+    } catch (parseError) {
+      console.error("JSON Parse Error:", parseError, "Raw Text:", response.text);
+      throw new Error("Erro ao interpretar a resposta da IA. O formato recebido foi inválido.");
+    }
+    
+    // 4. Save to Cache
+    try {
+      const imageHash = await generateImageHash(base64Image);
+      const cacheKey = `${CACHE_PREFIX}${imageHash}`;
       localStorage.setItem(cacheKey, JSON.stringify(result));
     } catch (e) {
-      console.warn("Could not save analysis to cache (quota exceeded?)", e);
+      console.warn("Could not save analysis to cache", e);
     }
 
-    // Add Metadata client-side for the current session interaction
     result.id = crypto.randomUUID();
     result.date = new Date().toISOString();
     
     return result;
 
-  } catch (error) {
-    console.error("Gemini API Error:", error);
-    throw new Error("Falha ao analisar a imagem. Tente novamente.");
+  } catch (error: any) {
+    console.error("Gemini API Error Full Details:", error);
+    
+    // If it's already an Error with a message we threw above, rethrow it
+    if (error.message === "Configuração de API ausente. Verifique as variáveis de ambiente no Vercel." || 
+        error.message.includes("resposta vazia") || 
+        error.message.includes("interpretar a resposta")) {
+      throw error;
+    }
+
+    // Handle API-specific errors
+    let errorMessage = "Falha ao analisar a imagem. Verifique sua conexão.";
+    if (error.message?.includes("403") || error.message?.includes("permission")) {
+      errorMessage = "Erro de permissão (API Key inválida ou sem créditos).";
+    } else if (error.message?.includes("429")) {
+      errorMessage = "Muitas requisições. Tente novamente em alguns segundos.";
+    } else if (error.message?.includes("500") || error.message?.includes("503")) {
+      errorMessage = "Serviço da IA indisponível temporariamente.";
+    }
+
+    throw new Error(errorMessage);
   }
 };
