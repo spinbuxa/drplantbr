@@ -1,182 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { ImageUpload } from './components/ImageUpload';
-import { AnalysisResults } from './components/AnalysisResults';
-import { HistoryList } from './components/HistoryList';
-import { FertilizerCalculator } from './components/FertilizerCalculator';
-import { PestLibrary } from './components/PestLibrary';
-import { InstallBanner } from './components/InstallBanner';
-import { analyzePlantImage } from './services/geminiService';
+import { analyzePlantImage } from './geminiService';
 import { PlantAnalysisResult } from './types';
+import { InstallBanner } from './InstallBanner';
+import { ImageUpload } from './ImageUpload';
+import { AnalysisResults } from './AnalysisResults';
+import { HistoryList } from './HistoryList';
+import { FertilizerCalculator } from './FertilizerCalculator';
+import { PestLibrary } from './PestLibrary';
+import { Header } from './Header';
+import { PlantWeather } from './PlantWeather';
+import { BottomMenu } from './BottomMenu';
 import { 
   Loader2, AlertTriangle, Users, BookOpen, Calculator, 
-  Sprout, Bug, MessageSquare, ThumbsUp, Moon, Sun, Share2,
-  Home, Camera, User, CloudSun, Droplets, Wind, MapPin
+  Sprout, Bug, ThumbsUp, MessageSquare
 } from 'lucide-react';
 
 const STORAGE_KEY = 'drplant_history_v1';
 const APP_VERSION = '1.3.1'; 
-
-// --- HEADER COMPONENT ---
-interface HeaderProps {
-  onReset: () => void;
-  isDarkMode: boolean;
-  toggleTheme: () => void;
-}
-
-const Header: React.FC<HeaderProps> = ({ onReset, isDarkMode, toggleTheme }) => {
-  const handleShareApp = async () => {
-    const shareData = {
-      title: 'Dr Plant',
-      text: 'Diagnostique suas plantas com Inteligência Artificial! Acesse:',
-      url: window.location.href
-    };
-
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch (err) {
-        console.log('Error sharing', err);
-      }
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      alert('Link copiado para a área de transferência!');
-    }
-  };
-
-  return (
-    <nav className="bg-green-600 dark:bg-green-800 text-white sticky top-0 z-50 shadow-md transition-colors duration-300">
-      <div className="container mx-auto px-4 h-14 flex items-center justify-between">
-        <button 
-          onClick={onReset} 
-          className="flex items-center gap-2 hover:opacity-90 transition-opacity"
-        >
-          <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
-            <Sprout size={20} className="text-white" />
-          </div>
-          <span className="text-lg font-bold tracking-tight">Dr Plant</span>
-        </button>
-        
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={handleShareApp}
-            className="p-2 hover:bg-white/10 rounded-full transition-colors"
-            title="Compartilhar App"
-          >
-            <Share2 size={20} />
-          </button>
-          
-          <button 
-            onClick={toggleTheme}
-            className="p-2 hover:bg-white/10 rounded-full transition-colors"
-            title="Alternar Tema"
-          >
-            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
-        </div>
-      </div>
-    </nav>
-  );
-};
-
-// --- PLANT WEATHER COMPONENT ---
-const PlantWeather: React.FC = () => {
-  return (
-    <div className="bg-gradient-to-br from-green-500 to-emerald-600 dark:from-green-600 dark:to-emerald-800 rounded-2xl p-6 text-white shadow-lg mb-8 relative overflow-hidden group">
-      <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl group-hover:bg-white/20 transition-all"></div>
-      
-      <div className="relative z-10">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-             <div className="flex items-center gap-2 mb-2 bg-white/20 w-fit px-3 py-1 rounded-full backdrop-blur-sm">
-                <MapPin size={14} />
-                <span className="text-xs font-semibold tracking-wide">SUA LOCALIZAÇÃO</span>
-             </div>
-             <h2 className="text-4xl font-bold tracking-tight mb-1">26°C</h2>
-             <p className="text-green-50 font-medium">Parcialmente Nublado</p>
-          </div>
-          <CloudSun size={56} className="text-green-50 drop-shadow-md" />
-        </div>
-        
-        <div className="flex gap-6 pt-4 border-t border-white/20">
-          <div className="flex items-center gap-2">
-             <Droplets size={18} className="text-green-100" />
-             <div>
-               <p className="text-xs text-green-100">Umidade</p>
-               <span className="text-sm font-bold">65%</span>
-             </div>
-          </div>
-          <div className="flex items-center gap-2">
-             <Wind size={18} className="text-green-100" />
-             <div>
-                <p className="text-xs text-green-100">Vento</p>
-                <span className="text-sm font-bold">12 km/h</span>
-             </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// --- BOTTOM MENU COMPONENT ---
-interface BottomMenuProps {
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
-  onCameraClick: () => void;
-}
-
-const BottomMenu: React.FC<BottomMenuProps> = ({ activeTab, setActiveTab, onCameraClick }) => {
-  return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 z-40 pb-safe">
-      <div className="container mx-auto max-w-lg flex items-end justify-between px-2 h-16 pb-2 relative">
-        
-        <button
-          onClick={() => setActiveTab('home')}
-          className={`flex flex-col items-center justify-center gap-1 flex-1 py-1 transition-colors ${activeTab === 'home' ? 'text-green-600 dark:text-green-500' : 'text-slate-400 dark:text-slate-500'}`}
-        >
-          <Home size={22} strokeWidth={activeTab === 'home' ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">Início</span>
-        </button>
-
-        <button
-           onClick={() => setActiveTab('community')}
-           className={`flex flex-col items-center justify-center gap-1 flex-1 py-1 transition-colors ${activeTab === 'community' ? 'text-green-600 dark:text-green-500' : 'text-slate-400 dark:text-slate-500'}`}
-        >
-          <Users size={22} strokeWidth={activeTab === 'community' ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">Comunidade</span>
-        </button>
-
-        <div className="relative -top-6 flex-1 flex justify-center pointer-events-none">
-          <button
-            onClick={onCameraClick}
-            className="pointer-events-auto w-16 h-16 bg-green-600 hover:bg-green-700 rounded-full flex items-center justify-center text-white shadow-lg shadow-green-600/40 transition-transform active:scale-95 border-4 border-slate-50 dark:border-slate-900"
-            aria-label="Diagnosticar"
-          >
-            <Camera size={28} />
-          </button>
-        </div>
-
-        <button
-           onClick={() => setActiveTab('library')}
-           className={`flex flex-col items-center justify-center gap-1 flex-1 py-1 transition-colors ${activeTab === 'library' ? 'text-green-600 dark:text-green-500' : 'text-slate-400 dark:text-slate-500'}`}
-        >
-          <BookOpen size={22} strokeWidth={activeTab === 'library' ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">Dicas</span>
-        </button>
-
-        <button
-           onClick={() => setActiveTab('profile')}
-           className={`flex flex-col items-center justify-center gap-1 flex-1 py-1 transition-colors ${activeTab === 'profile' ? 'text-green-600 dark:text-green-500' : 'text-slate-400 dark:text-slate-500'}`}
-        >
-          <User size={22} strokeWidth={activeTab === 'profile' ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">Perfil</span>
-        </button>
-      </div>
-    </div>
-  );
-};
-
-// --- MAIN APP ---
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('home');
@@ -470,7 +310,8 @@ export const App: React.FC = () => {
                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Pragas</span>
               </div>
               
-              <div className="flex flex-col items-center gap-2 p-2 rounded-xl active:bg-slate-50 transition-colors cursor-pointer">
+              <div className="flex flex-col items-center gap-2 p-2 rounded-xl active:bg-slate-50 transition-colors cursor-pointer"
+              >
                  <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-xl flex items-center justify-center shadow-sm">
                     <BookOpen size={24} />
                  </div>
